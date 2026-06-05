@@ -1,8 +1,28 @@
 
+# app.py 开头部分
 import streamlit as st
-import uuid
 import sqlite3
-from datetime import datetime # Import datetime
+
+def init_db():
+    conn = sqlite3.connect('demands.db')
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS demands (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT,
+            budget TEXT,
+            contact TEXT,
+            status TEXT,
+            taker TEXT,
+            created_at TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+# 这一行必须在所有数据库操作之前
+init_db()
 
 # Helper functions for database operations
 def get_db_connection():
@@ -23,13 +43,29 @@ def insert_demand(demand):
     conn.close()
 
 def get_all_demands():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    # Order by created_at in descending order to show latest first
-    cursor.execute("SELECT * FROM demands ORDER BY created_at DESC")
-    demands = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    return demands
+    try:
+        conn = sqlite3.connect('demands.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM demands ORDER BY created_at DESC")
+        rows = cursor.fetchall()
+        conn.close()
+        # 转换成字典列表
+        demands = []
+        for row in rows:
+            demands.append({
+                "id": row[0],
+                "title": row[1],
+                "description": row[2],
+                "budget": row[3],
+                "contact": row[4],
+                "status": row[5],
+                "taker": row[6],
+                "created_at": row[7]
+            })
+        return demands
+    except Exception as e:
+        st.error(f"数据库查询失败: {e}")
+        return []
 
 def update_demand_status_and_taker(demand_id, taker_name):
     conn = get_db_connection()

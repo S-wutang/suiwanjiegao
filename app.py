@@ -3,7 +3,7 @@
 import streamlit as st
 import sqlite3
 import uuid
-import datetime
+from datetime import datetime
 
 def init_db():
     conn = sqlite3.connect('demands.db')

@@ -1,11 +1,10 @@
 import streamlit as st
 import sqlite3
 import uuid
-from datetime import datetime, timezone, timedelta   # 正确导入
+from datetime import datetime, timezone, timedelta
 
 # ---------- 北京时间工具函数 ----------
 def get_beijing_time():
-    """返回当前北京时间（ISO格式字符串，不带微秒）"""
     beijing_tz = timezone(timedelta(hours=8))
     return datetime.now(beijing_tz).isoformat(timespec='seconds')
 
@@ -53,7 +52,7 @@ def add_demand(title, description, budget, contact):
     conn = sqlite3.connect('demands.db')
     c = conn.cursor()
     new_id = str(uuid.uuid4())
-    created_at = get_beijing_time()   # 使用北京时间
+    created_at = get_beijing_time()
     c.execute('''
         INSERT INTO demands (id, title, description, budget, contact, status, taker, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -61,18 +60,30 @@ def add_demand(title, description, budget, contact):
     conn.commit()
     conn.close()
 
-def take_demand(demand_id, taker_name="接稿人 (暂未留名)"):
+def take_demand(demand_id, taker_name):
     conn = sqlite3.connect('demands.db')
     c = conn.cursor()
     c.execute('UPDATE demands SET status = ?, taker = ? WHERE id = ?', ('taken', taker_name, demand_id))
     conn.commit()
     conn.close()
 
+# ---------- 对话框组件（用于接稿人输入名字） ----------
+@st.dialog("✍️ 接稿确认")
+def take_demand_dialog(demand_id):
+    st.write("请输入你的名字或昵称：")
+    taker_name = st.text_input("接稿人名称", placeholder="例：小明 或 小明@email.com")
+    if st.button("确认接稿"):
+        if taker_name.strip():
+            take_demand(demand_id, taker_name.strip())
+            st.success("接稿成功！")
+            st.rerun()
+        else:
+            st.error("请填写接稿人名称")
+
 # ---------- Streamlit UI ----------
 st.set_page_config(page_title="接稿平台", layout="wide")
 st.title("📝 接稿平台 · 发布需求 | 接稿接单")
 
-# 初始化数据库
 init_db()
 
 # 侧边栏发布表单
@@ -107,7 +118,6 @@ else:
                     st.write(f"**预算**：{demand['budget']}")
                 if demand['contact']:
                     st.write(f"**联系方式**：{demand['contact']}")
-                # 显示北京时间（直接显示存储的字符串）
                 st.write(f"**发布时间**：{demand['created_at']}")
                 status = "🟢 待接稿" if demand['status'] == 'open' else "🔒 已接稿"
                 st.write(f"**状态**：{status}")
@@ -115,10 +125,9 @@ else:
                     st.write(f"**接稿人**：{demand['taker']}")
             with col2:
                 if demand['status'] == 'open':
+                    # 修改：点击按钮时弹出对话框
                     if st.button("✍️ 接稿", key=f"btn_{demand['id']}"):
-                        take_demand(demand['id'])
-                        st.success("接稿成功！")
-                        st.rerun()
+                        take_demand_dialog(demand['id'])
                 else:
                     st.button("已接", disabled=True, key=f"disabled_{demand['id']}")
             st.divider()

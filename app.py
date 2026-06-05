@@ -82,15 +82,15 @@ def take_demand_dialog(demand_id):
             st.error("请填写接稿人名称")
 
 # ---------- Streamlit UI ----------
-st.set_page_config(page_title="接稿平台", layout="wide")
-st.title("📝 接稿平台 · 发布需求 | 接稿接单")
+st.set_page_config(page_title="接稿小站", layout="wide")
+st.title("📝 岁晚文社 · 接稿小站")
 
 init_db()
 
 # 侧边栏导航
-page = st.sidebar.radio("导航", ["接稿大厅", "数据管理"])
+page = st.sidebar.radio("导航", ["接稿小站", "历史记录"])
 
-if page == "接稿大厅":
+if page == "接稿小站":
     # ---------- 发布表单 ----------
     with st.sidebar:
         st.header("➕ 发布新需求")

@@ -2,6 +2,7 @@
 # app.py 开头部分
 import streamlit as st
 import sqlite3
+import uuid
 
 def init_db():
     conn = sqlite3.connect('demands.db')

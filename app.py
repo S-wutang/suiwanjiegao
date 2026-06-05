@@ -1,9 +1,10 @@
 import streamlit as st
 import sqlite3
 import uuid
+import pandas as pd
 from datetime import datetime, timezone, timedelta
 
-# ---------- 北京时间工具函数 ----------
+# ---------- 北京时间 ----------
 def get_beijing_time():
     beijing_tz = timezone(timedelta(hours=8))
     return datetime.now(beijing_tz).isoformat(timespec='seconds')
@@ -67,7 +68,7 @@ def take_demand(demand_id, taker_name):
     conn.commit()
     conn.close()
 
-# ---------- 对话框组件（用于接稿人输入名字） ----------
+# ---------- 接稿对话框 ----------
 @st.dialog("✍️ 接稿确认")
 def take_demand_dialog(demand_id):
     st.write("请输入你的名字或昵称：")
@@ -81,68 +82,69 @@ def take_demand_dialog(demand_id):
             st.error("请填写接稿人名称")
 
 # ---------- Streamlit UI ----------
-st.set_page_config(page_title="岁晚文社·接稿小站", layout="wide")
-st.title("📝 岁晚文社 · 发布|接稿")
-page = st.sidebar.radio("导航", ["接稿小站", "历史记录"])
+st.set_page_config(page_title="接稿平台", layout="wide")
+st.title("📝 接稿平台 · 发布需求 | 接稿接单")
 
-if page == "接稿小站":
-    # 你原来的主界面代码放在这里
+init_db()
+
+# 侧边栏导航
+page = st.sidebar.radio("导航", ["接稿大厅", "数据管理"])
+
+if page == "接稿大厅":
+    # ---------- 发布表单 ----------
+    with st.sidebar:
+        st.header("➕ 发布新需求")
+        with st.form("publish_form", clear_on_submit=True):
+            title = st.text_input("需求标题 *")
+            description = st.text_area("详细描述")
+            budget = st.text_input("预算（选填）")
+            contact = st.text_input("联系方式（选填）")
+            submitted = st.form_submit_button("发布")
+            if submitted and title.strip():
+                add_demand(title, description, budget, contact)
+                st.success("发布成功！")
+                st.rerun()
+            elif submitted:
+                st.error("标题不能为空")
+
+    # ---------- 需求列表 ----------
     st.header("📋 当前需求")
     demands = get_all_demands()
-if not demands:
-    st.info("暂无需求，在左边发布第一个吧～")
-else:
-    for demand in demands:
-        with st.container():
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                st.subheader(f"📌 {demand['title']}")
-                st.write(f"**描述**：{demand['description']}")
-                if demand['budget']:
-                    st.write(f"**预算**：{demand['budget']}")
-                if demand['contact']:
-                    st.write(f"**联系方式**：{demand['contact']}")
-                st.write(f"**发布时间**：{demand['created_at']}")
-                status = "🟢 待接稿" if demand['status'] == 'open' else "🔒 已接稿"
-                st.write(f"**状态**：{status}")
-                if demand['taker']:
-                    st.write(f"**接稿人**：{demand['taker']}")
-            with col2:
-                if demand['status'] == 'open':
-                    if st.button("✍️ 接稿", key=f"btn_{demand['id']}"):
-                        take_demand_dialog(demand['id'])
-                else:
-                    st.button("已接", disabled=True, key=f"disabled_{demand['id']}")
-            st.divider()
+    if not demands:
+        st.info("暂无需求，在左边发布第一个吧～")
+    else:
+        for demand in demands:
+            with st.container():
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.subheader(f"📌 {demand['title']}")
+                    st.write(f"**描述**：{demand['description']}")
+                    if demand['budget']:
+                        st.write(f"**预算**：{demand['budget']}")
+                    if demand['contact']:
+                        st.write(f"**联系方式**：{demand['contact']}")
+                    st.write(f"**发布时间**：{demand['created_at']}")
+                    status = "🟢 待接稿" if demand['status'] == 'open' else "🔒 已接稿"
+                    st.write(f"**状态**：{status}")
+                    if demand['taker']:
+                        st.write(f"**接稿人**：{demand['taker']}")
+                with col2:
+                    if demand['status'] == 'open':
+                        if st.button("✍️ 接稿", key=f"btn_{demand['id']}"):
+                            take_demand_dialog(demand['id'])
+                    else:
+                        st.button("已接", disabled=True, key=f"disabled_{demand['id']}")
+                st.divider()
 
-else:
+else:  # 数据管理页面
     st.header("🗄️ 数据库管理")
-    # 直接以表格形式显示所有需求
     demands = get_all_demands()
     if demands:
-        st.dataframe(demands)  # 交互式表格
-        # 也可以导出为 CSV
-        import pandas as pd
+        # 显示表格
         df = pd.DataFrame(demands)
+        st.dataframe(df, use_container_width=True)
+        # 导出 CSV
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button("📥 导出为 CSV", csv, "demands.csv", "text/csv")
     else:
         st.info("数据库为空")
-
-init_db()
-
-# 侧边栏发布表单
-with st.sidebar:
-    st.header("➕ 发布新需求")
-    with st.form("publish_form", clear_on_submit=True):
-        title = st.text_input("需求标题 *")
-        description = st.text_area("详细描述")
-        budget = st.text_input("预算（选填）")
-        contact = st.text_input("联系方式（选填）")
-        submitted = st.form_submit_button("发布")
-        if submitted and title.strip():
-            add_demand(title, description, budget, contact)
-            st.success("发布成功！")
-            st.rerun()
-        elif submitted:
-            st.error("标题不能为空")

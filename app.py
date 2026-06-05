@@ -1,9 +1,25 @@
 
-# app.py 开头部分
 import streamlit as st
 import sqlite3
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone, timedelta   
+
+def get_beijing_time():
+    """返回当前北京时间（ISO格式字符串）"""
+    beijing_tz = timezone(timedelta(hours=8))
+    return datetime.now(beijing_tz).isoformat(timespec='seconds')  
+
+def add_demand(title, description, budget, contact):
+    conn = sqlite3.connect('demands.db')
+    c = conn.cursor()
+    new_id = str(uuid.uuid4())
+    created_at = get_beijing_time()  
+    c.execute('''
+        INSERT INTO demands (id, title, description, budget, contact, status, taker, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (new_id, title, description, budget, contact, 'open', None, created_at))
+    conn.commit()
+    conn.close()
 
 def init_db():
     conn = sqlite3.connect('demands.db')

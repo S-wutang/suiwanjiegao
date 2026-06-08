@@ -1,72 +1,47 @@
 import streamlit as st
-import sqlite3
 import uuid
-import pandas as pd
+from supabase import create_client, Client
 from datetime import datetime, timezone, timedelta
+
+# ================== 在这里粘贴你从 Supabase 复制的信息 ==================
+SUPABASE_URL = "sb_publishable_XxTceqYdyIYDob6rsL3Q-Q_lBkGmu0S"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludWRvZmxkcHR4andjdnFibWRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MDkwNDEsImV4cCI6MjA5NjQ4NTA0MX0.2eLe2pyeyPgqa93H2sDjMWcwBrihicmjj5HuIXpMNV0"
+# ===================================================================
+
+# 初始化 Supabase 客户端
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 # ---------- 北京时间 ----------
 def get_beijing_time():
     beijing_tz = timezone(timedelta(hours=8))
     return datetime.now(beijing_tz).isoformat(timespec='seconds')
 
-# ---------- 数据库初始化 ----------
-def init_db():
-    conn = sqlite3.connect('demands.db')
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS demands (
-            id TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            description TEXT,
-            budget TEXT,
-            contact TEXT,
-            status TEXT,
-            taker TEXT,
-            created_at TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-# ---------- 数据库操作 ----------
+# ---------- 数据库操作（现在都是操作 Supabase 云数据库了）----------
 def get_all_demands():
-    conn = sqlite3.connect('demands.db')
-    c = conn.cursor()
-    c.execute("SELECT * FROM demands ORDER BY created_at DESC")
-    rows = c.fetchall()
-    conn.close()
-    demands = []
-    for row in rows:
-        demands.append({
-            "id": row[0],
-            "title": row[1],
-            "description": row[2],
-            "budget": row[3],
-            "contact": row[4],
-            "status": row[5],
-            "taker": row[6],
-            "created_at": row[7],
-        })
-    return demands
+    """从 Supabase 获取所有需求，按时间倒序"""
+    response = supabase.table('demands').select('*').order('created_at', desc=True).execute()
+    return response.data
 
 def add_demand(title, description, budget, contact):
-    conn = sqlite3.connect('demands.db')
-    c = conn.cursor()
-    new_id = str(uuid.uuid4())
-    created_at = get_beijing_time()
-    c.execute('''
-        INSERT INTO demands (id, title, description, budget, contact, status, taker, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (new_id, title, description, budget, contact, 'open', None, created_at))
-    conn.commit()
-    conn.close()
+    """向 Supabase 添加新需求"""
+    new_demand = {
+        "id": str(uuid.uuid4()),
+        "title": title,
+        "description": description,
+        "budget": budget,
+        "contact": contact,
+        "status": "open",
+        "taker": None,
+        "created_at": get_beijing_time()
+    }
+    supabase.table('demands').insert(new_demand).execute()
 
 def take_demand(demand_id, taker_name):
-    conn = sqlite3.connect('demands.db')
-    c = conn.cursor()
-    c.execute('UPDATE demands SET status = ?, taker = ? WHERE id = ?', ('taken', taker_name, demand_id))
-    conn.commit()
-    conn.close()
+    """更新 Supabase 中的需求状态和接稿人"""
+    supabase.table('demands').update({
+        "status": "taken",
+        "taker": taker_name
+    }).eq('id', demand_id).execute()
 
 # ---------- 接稿对话框 ----------
 @st.dialog("✍️ 接稿确认")
@@ -84,8 +59,6 @@ def take_demand_dialog(demand_id):
 # ---------- Streamlit UI ----------
 st.set_page_config(page_title="接稿小站", layout="wide")
 st.title("📝 岁晚文社 · 接稿小站")
-
-init_db()
 
 # 侧边栏导航
 page = st.sidebar.radio("导航", ["接稿小站", "历史记录"])
@@ -119,14 +92,14 @@ if page == "接稿小站":
                 with col1:
                     st.subheader(f"📌 {demand['title']}")
                     st.write(f"**描述**：{demand['description']}")
-                    if demand['budget']:
+                    if demand.get('budget'):
                         st.write(f"**预算**：{demand['budget']}")
-                    if demand['contact']:
+                    if demand.get('contact'):
                         st.write(f"**联系方式**：{demand['contact']}")
                     st.write(f"**发布时间**：{demand['created_at']}")
                     status = "🟢 待接稿" if demand['status'] == 'open' else "🔒 已接稿"
                     st.write(f"**状态**：{status}")
-                    if demand['taker']:
+                    if demand.get('taker'):
                         st.write(f"**接稿人**：{demand['taker']}")
                 with col2:
                     if demand['status'] == 'open':
@@ -137,11 +110,14 @@ if page == "接稿小站":
                 st.divider()
 
 else:  # 数据管理页面
-    st.header("🗄️ 数据库管理")
+    st.header("🗄️ 历史记录")
     demands = get_all_demands()
     if demands:
-        # 显示表格
+        # 为了让表格更易读，我们只选择重要的列显示
         df = pd.DataFrame(demands)
+        # 调整列的顺序，并选择要显示的列
+        display_columns = ['id', 'title', 'description', 'budget', 'contact', 'status', 'taker', 'created_at']
+        df = df[display_columns]
         st.dataframe(df, use_container_width=True)
         # 导出 CSV
         csv = df.to_csv(index=False).encode('utf-8')

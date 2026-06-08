@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 import uuid
 from supabase import create_client, Client
 from datetime import datetime, timezone, timedelta

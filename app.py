@@ -4,7 +4,7 @@ from supabase import create_client, Client
 from datetime import datetime, timezone, timedelta
 
 # ================== 在这里粘贴你从 Supabase 复制的信息 ==================
-SUPABASE_URL = "sb_publishable_XxTceqYdyIYDob6rsL3Q-Q_lBkGmu0S"
+SUPABASE_URL = "https://ynudofldptxjwcvqbmdn.supabase.co"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludWRvZmxkcHR4andjdnFibWRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MDkwNDEsImV4cCI6MjA5NjQ4NTA0MX0.2eLe2pyeyPgqa93H2sDjMWcwBrihicmjj5HuIXpMNV0"
 # ===================================================================
 
